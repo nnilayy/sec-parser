@@ -41,7 +41,7 @@
 <br>
 <div align="center">
   <b>
-  <a href="https://parser.app.alphanome.dev">See Demo</a> |
+  <a href="https://parser.alphanome.app">See Demo</a> |
   <a href="https://sec-parser.rtfd.io">Read Docs</a> |
   <a href="https://github.com/orgs/alphanome-ai/discussions">Join Discussions</a> |
   <a href="https://discord.gg/2MC3uJhBxs">Join Discord</a>
@@ -59,7 +59,7 @@ The `sec-parser` project simplifies extracting meaningful information from SEC E
 
 This tool is especially beneficial for Artificial Intelligence (AI), Machine Learning (ML), and Large Language Models (LLM) applications by streamlining data pre-processing and feature extraction.
 
-- Explore the [**Demo**](https://parser.app.alphanome.dev/)
+- Explore the [**Demo**](https://parser.alphanome.app)
 - Read the [**Documentation**](https://sec-parser.rtfd.io)
 - Join the [**Discussions**](https://github.com/orgs/alphanome-ai/discussions) to get help, propose ideas, or chat with the community
 - Become part of our [**Discord**](https://discord.gg/2MC3uJhBxs) community
@@ -130,7 +130,7 @@ from sec_downloader import Downloader
 dl = Downloader("MyCompanyName", "email@example.com")
 
 # Download the latest 10-Q filing for Apple
-html = dl.get_latest_html("10-Q", "AAPL")
+html = dl.get_filing_html(ticker="AAPL", form="10-Q")
 ```
 
 > **Note**
@@ -200,29 +200,25 @@ pip install sec-ai
 
 ## How to Import Modules In Your Code
 
-To ensure your code remains functional even when we update `sec-parser`, it's recommended to avoid complex imports. Don't use intricate import statements that go deep into the package, like this:
+To ensure your code remains functional even when we change the internal structure of `sec-parser`, it's recommended to avoid deep imports. Here is an example of a deep import:
 
 ```
-from sec_parser.semantic_tree.internal_utils import SomeInternalClass
+from sec_parser.semantic_tree.internal_utils.core import SomeInternalClass
 ```
 
 Here are the suggested ways to import modules from `sec-parser`:
 
-### Basic Import
-- **Standard Way**: Use `import sec_parser as sp`  
-  This imports the main package as `sp`. You can then access its functionalities using `sp.` prefix.
+### Root Import (prefix)
+- **`import sec_parser as sp`**. This imports the main package as `sp`. You can then access its functionalities using `sp.` prefix.
 
-### Specific Import
-- **Package-Level Import**: Use `from sec_parser import SomeClass`  
-  This allows you to directly use `SomeClass` without any prefix.
+### Root Import (direct)
+- **`from sec_parser import SomeClass`**: This allows you to directly use `SomeClass` without any prefix.
 
-### Submodule Import
-- **Submodule**: Use `from sec_parser import semantic_tree`  
-  This imports the `semantic_tree` submodule, and you can access its classes and functions using `semantic_tree.` prefix.
+### Submodule Import (prefix)
+- **`import sec_parser.semantic_tree**`**: This imports the `semantic_tree` submodule, and you can access its classes and functions using `semantic_tree.` prefix.
 
-### More Specific Submodule Import
-- **Submodule-Level**: Use `from sec_parser.semantic_tree import SomeClass`  
-  This imports a specific class `SomeClass` from the `semantic_tree` submodule.
+### Submodule Import (direct)
+- **`from sec_parser.semantic_tree import SomeClass`**: This imports a specific class `SomeClass` from the `semantic_tree` submodule.
 
 > **Note**
 The main package `sec_parser` contains only the most common functionalities. For specialized tasks, please use submodule or submodule-level imports.

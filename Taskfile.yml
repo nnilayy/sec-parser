@@ -6,23 +6,24 @@ tasks:
 ### Development Tools: Local Application Launchers ###
 ######################################################
 
-  launch-debug-dashboard:
-    desc: Start a local debugging dashboard in the browser.
+  launch-dashboard:
+    desc: Start a local dashboard in the browser.
     cmds:
       # Using PYTHONPATH to allow Streamlit to monitor file changes. Learn more: https://docs.streamlit.io/knowledge-base/using-streamlit/streamlit-watch-changes-other-modules-importing-app
-      - export PYTHONPATH=$PYTHONPATH:$(pwd)/sec_parser ENVIRONMENT=dev && poetry run streamlit run dev_utils/debug_dashboard/app.py --server.runOnSave=true
-
-  launch-visualizer:
-    desc: Start a local visualization server
-    cmds:
-      - export PYTHONPATH=$PYTHONPATH:$(pwd)/sec_parser ENVIRONMENT=dev && poetry run streamlit run dev_utils/semantic_visualization/app.py --server.runOnSave=true
+      - export PYTHONPATH=$PYTHONPATH:$(pwd)/sec_parser ENVIRONMENT=dev && poetry run streamlit run dev_utils/dashboard_app/app.py --server.runOnSave=false --client.showErrorDetails=true
 
   monitor-unit-tests:
     desc: "Run unit tests and rerun them immediately upon file modification."
     cmds:
       # Recommended coverage viewer in VSCode: https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
       # Note: also update .codecov.yml when changing the target coverage.
-      - poetry run ptw -- -- -s {{.CLI_ARGS}} --cov --cov-report=lcov:lcov.info --cov-report=term:skip-covered --cov-fail-under=90 tests/unit/
+      - poetry run ptw -- -- {{.CLI_ARGS}} -s --cov --cov-report=lcov:lcov.info --cov-report=term:skip-covered --cov-fail-under=90 tests/unit/
+
+  monitor-generalization-tests:
+    desc: "Run generalization tests and rerun them immediately upon file modification."
+    cmds:
+      # Note: running generalization tests simultaneously to speed up the testing process. Remove the '-n auto' flag to run them sequentially.
+      - poetry run ptw -- -- {{.CLI_ARGS}} -s -n auto tests/generalization/
 
   launch-docs:
     desc: Start a local server to preview and automatically rebuild documentation upon file modification.
@@ -44,6 +45,7 @@ tasks:
     cmds:
       - task: ensure-clean-working-tree
       - task: lint
+      - task: generalization-tests
       - task: update-dependencies
       - task: update-notebook-outputs
       - git add -u
@@ -87,13 +89,7 @@ tasks:
     cmds:
       - task: clone-sec-parser-test-data    
       # Note: running generalization tests simultaneously to speed up the testing process. Remove the '-n auto' flag to run them sequentially.
-      # TODO: Confirm whether workers might duplicate effort by parsing the same document. This is likely because each pytest-xdist worker instantiates its own session-scoped fixtures. If confirmed, consider implementing a solution.
-      - poetry run pytest -n auto -s tests/generalization/
-
-  profiler:
-    desc: Open a performance report to identify bottlenecks. Run 'task profiler -- --help' to get help.
-    cmds:
-      - poetry run python -m dev_utils.profiler {{.CLI_ARGS}}
+      - poetry run pytest -s -n auto tests/generalization/
 
 ################################################################
 ### Hidden: Primarily Used within Other Tasks or Used Rarely ###
@@ -164,9 +160,9 @@ tasks:
     deps:
       - check-and-push
 
-  d: # You can just run `task d` instead of `task launch-debug-dashboard`.
+  d: # You can just run `task d` instead of `task launch-dashboard`.
     deps:
-      - launch-debug-dashboard
+      - launch-dashboard
 
   m: # You can just run `task m` instead of `task monitor-unit-tests`.
     deps:

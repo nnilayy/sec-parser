@@ -7,6 +7,8 @@ from sec_parser.processing_engine.html_tag_parser import (
     AbstractHtmlTagParser,
     HtmlTagParser,
 )
+from sec_parser.processing_engine.types import ParsingOptions
+from sec_parser.processing_steps.empty_element_classifier import EmptyElementClassifier
 from sec_parser.processing_steps.highlighted_text_classifier import (
     HighlightedTextClassifier,
 )
@@ -20,21 +22,24 @@ from sec_parser.processing_steps.individual_semantic_element_extractor.single_el
 from sec_parser.processing_steps.individual_semantic_element_extractor.single_element_checks.table_check import (
     TableCheck,
 )
-from sec_parser.processing_steps.irrelevant_element_classifier import (
-    IrrelevantElementClassifier,
+from sec_parser.processing_steps.individual_semantic_element_extractor.single_element_checks.top_level_section_title_check import (
+    TopLevelSectionTitleCheck,
 )
-from sec_parser.processing_steps.pre_top_level_section_pruner import (
-    PreTopLevelSectionPruner,
+from sec_parser.processing_steps.individual_semantic_element_extractor.single_element_checks.xbrl_tag_check import (
+    XbrlTagCheck,
 )
 from sec_parser.processing_steps.supplementary_text_classifier import (
     SupplementaryTextClassifier,
 )
 from sec_parser.processing_steps.table_classifier import TableClassifier
+from sec_parser.processing_steps.table_of_contents_classifier import (
+    TableOfContentsClassifier,
+)
 from sec_parser.processing_steps.text_classifier import TextClassifier
 from sec_parser.processing_steps.text_element_merger import TextElementMerger
 from sec_parser.processing_steps.title_classifier import TitleClassifier
-from sec_parser.processing_steps.top_level_section_title_classifier import (
-    TopLevelSectionTitleClassifier,
+from sec_parser.processing_steps.top_level_section_manager_for_10q import (
+    TopLevelSectionManagerFor10Q,
 )
 from sec_parser.semantic_elements.composite_semantic_element import (
     CompositeSemanticElement,
@@ -44,6 +49,7 @@ from sec_parser.semantic_elements.semantic_elements import (
     NotYetClassifiedElement,
     TextElement,
 )
+from sec_parser.semantic_elements.table_element.table_element import TableElement
 
 if TYPE_CHECKING:  # pragma: no cover
     from sec_parser.processing_engine.html_tag import HtmlTag
@@ -97,9 +103,11 @@ class AbstractSemanticElementParser(ABC):
         self,
         get_steps: Callable[[], list[AbstractProcessingStep]] | None = None,
         *,
+        parsing_options: ParsingOptions | None = None,
         html_tag_parser: AbstractHtmlTagParser | None = None,
     ) -> None:
         self._get_steps = get_steps or self.get_default_steps
+        self._parsing_options = parsing_options or ParsingOptions()
         self._html_tag_parser = html_tag_parser or HtmlTagParser()
 
     @abstractmethod
@@ -108,7 +116,7 @@ class AbstractSemanticElementParser(ABC):
 
     def parse(
         self,
-        html: str,
+        html: str | bytes,
         *,
         unwrap_elements: bool | None = None,
         include_containers: bool | None = None,
@@ -160,22 +168,23 @@ class Edgar10QParser(AbstractSemanticElementParser):
                 get_checks=get_checks or self.get_default_single_element_checks,
             ),
             ImageClassifier(types_to_process={NotYetClassifiedElement}),
+            EmptyElementClassifier(types_to_process={NotYetClassifiedElement}),
             TableClassifier(types_to_process={NotYetClassifiedElement}),
+            TableOfContentsClassifier(types_to_process={TableElement}),
+            TopLevelSectionManagerFor10Q(types_to_process={NotYetClassifiedElement}),
             TextClassifier(types_to_process={NotYetClassifiedElement}),
             HighlightedTextClassifier(types_to_process={TextElement}),
             SupplementaryTextClassifier(
                 types_to_process={TextElement, HighlightedTextElement},
             ),
-            TopLevelSectionTitleClassifier(types_to_process={HighlightedTextElement}),
-            PreTopLevelSectionPruner(),
             TitleClassifier(types_to_process={HighlightedTextElement}),
-            IrrelevantElementClassifier(),
             TextElementMerger(),
         ]
 
     def get_default_single_element_checks(self) -> list[AbstractSingleElementCheck]:
         return [
             TableCheck(),
-            # XbrlTagCheck(), # noqa: ERA001 # TODO(elijas): https://github.com/alphanome-ai/sec-parser/issues/50
+            XbrlTagCheck(),
             ImageCheck(),
+            TopLevelSectionTitleCheck(),
         ]

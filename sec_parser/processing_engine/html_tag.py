@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Callable
 
 import bs4
 import xxhash
@@ -14,9 +15,13 @@ from sec_parser.utils.bs4_.approx_table_metrics import (
 )
 from sec_parser.utils.bs4_.contains_tag import contains_tag
 from sec_parser.utils.bs4_.count_tags import count_tags
+from sec_parser.utils.bs4_.count_text_matches_in_descendants import (
+    count_text_matches_in_descendants,
+)
 from sec_parser.utils.bs4_.has_tag_children import has_tag_children
 from sec_parser.utils.bs4_.has_text_outside_tags import has_text_outside_tags
 from sec_parser.utils.bs4_.is_unary_tree import is_unary_tree
+from sec_parser.utils.bs4_.table_check_data_cell import check_table_contains_text_page
 from sec_parser.utils.bs4_.table_to_markdown import TableToMarkdown
 from sec_parser.utils.bs4_.text_styles_metrics import compute_text_styles_metrics
 from sec_parser.utils.bs4_.without_tags import without_tags
@@ -26,6 +31,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable
 
 TEXT_PREVIEW_LENGTH = 40
+
+# Regex pattern for opening ix tags
+opening_tag_pattern = re.compile(r"<ix:[^>]+>")
+
+# Regex pattern for closing ix tags
+closing_tag_pattern = re.compile(r"</ix:[^>]+>")
 
 
 class HtmlTag:
@@ -65,6 +76,7 @@ class HtmlTag:
         self._frozen_dict: frozendict | None = None
         self._source_code: str | None = None
         self._pretty_source_code: str | None = None
+        self._compatible_source_code: str | None = None
         self._approx_table_metrics: ApproxTableMetrics | None = None
         self._contains_tag: dict[tuple[str, bool], bool] = {}
         self._without_tags: dict[tuple[str, ...], HtmlTag] = {}
@@ -81,9 +93,24 @@ class HtmlTag:
                 self._parent = HtmlTag(parent)
         return self._parent
 
-    def get_source_code(self, *, pretty: bool = False) -> str:
+    def get_source_code(
+        self,
+        *,
+        pretty: bool = False,
+        enable_compatibility: bool = False,
+    ) -> str:
+        if enable_compatibility:
+            if self._compatible_source_code is None:
+                # Streamlit's st.markdown(html) doesn't work with colons in tags names.
+                s = self.get_source_code(pretty=True)
+                s = opening_tag_pattern.sub("<span>", s)
+                s = closing_tag_pattern.sub("</span>", s)
+                self._compatible_source_code = s
+            return self._compatible_source_code
+
         if pretty:
             if self._pretty_source_code is None:
+                # Streamlit's st.markdown(html) doesn't colons in tags.
                 self._pretty_source_code = self._bs4.prettify()
             return self._pretty_source_code
 
@@ -109,7 +136,13 @@ class HtmlTag:
                 {
                     "tag_name": self._bs4.name,
                     "text_preview": self._generate_preview(self.text),
-                    "html_preview": self._generate_preview(self.get_source_code()),
+                    "html_preview": self._generate_preview(
+                        remove_affixes(
+                            self.get_source_code(),
+                            prefixes=(f"<{self._bs4.name}>", f"<{self._bs4.name} "),
+                            suffix=f"</{self._bs4.name}>",
+                        ),
+                    ),
                     "html_hash": xxhash.xxh32(self.get_source_code()).hexdigest(),
                 },
             )
@@ -119,7 +152,7 @@ class HtmlTag:
         """Return True if the semantic element contains text."""
         if self._contains_words is None:
             self._contains_words = (
-                any(char.isalpha() for char in self.text) if self.text else False
+                any(char.isalnum() for char in self.text) if self.text else False
             )
         return self._contains_words
 
@@ -261,6 +294,9 @@ class HtmlTag:
             self._approx_table_metrics = get_approx_table_metrics(self._bs4)
         return self._approx_table_metrics
 
+    def is_table_of_content(self) -> bool:
+        return check_table_contains_text_page(self._bs4)
+
     def table_to_markdown(self) -> str:
         if self._markdown_table is None:
             self._markdown_table = TableToMarkdown(self._bs4).convert()
@@ -295,6 +331,16 @@ class HtmlTag:
         tag._parent = html_tags[0].parent  # noqa: SLF001
         return tag
 
+    def count_text_matches_in_descendants(
+        self,
+        predicate: Callable[[str], bool],
+        *,
+        exclude_links: bool | None = None,
+    ) -> int:
+        return count_text_matches_in_descendants(
+            self._bs4, predicate, exclude_links=exclude_links,
+        )
+
 
 class EmptyNavigableStringError(SecParserValueError):
     pass
@@ -305,3 +351,14 @@ class NotSetType:
 
 
 NotSet = NotSetType()
+
+
+def remove_affixes(text: str, prefixes: tuple, suffix: str) -> str:
+    start = 0
+    if prefixes is not None:
+        for prefix in prefixes:
+            if text.startswith(prefix):
+                start = len(prefix)
+                break
+    end = -len(suffix) if suffix and text.endswith(suffix) else None
+    return text[start:end]

@@ -5,8 +5,12 @@ from sec_parser.exceptions import (
 )
 from sec_parser.processing_engine.core import Edgar10QParser
 from sec_parser.processing_engine.html_tag import HtmlTag
+from sec_parser.processing_engine.types import ParsingOptions
 from sec_parser.processing_steps.abstract_classes.abstract_processing_step import (
     AbstractProcessingStep,
+)
+from sec_parser.semantic_elements.composite_semantic_element import (
+    CompositeSemanticElement,
 )
 from sec_parser.semantic_elements.semantic_elements import (
     AbstractSemanticElement,
@@ -14,6 +18,7 @@ from sec_parser.semantic_elements.semantic_elements import (
     ImageElement,
     IrrelevantElement,
     NotYetClassifiedElement,
+    SupplementaryText,
     TextElement,
 )
 from sec_parser.semantic_elements.table_element.table_element import TableElement
@@ -31,6 +36,7 @@ __all__ = [
     "TreeBuilder",
     # Common semantic elements
     "AbstractSemanticElement",
+    "CompositeSemanticElement",
     "NotYetClassifiedElement",
     "TopLevelSectionTitle",
     "TextElement",
@@ -38,6 +44,7 @@ __all__ = [
     "IrrelevantElement",
     "ImageElement",
     "TableElement",
+    "SupplementaryText",
     "EmptyElement",
     # Common exceptions
     "SecParserError",
@@ -51,4 +58,5 @@ __all__ = [
     "HtmlTag",
     # Misc
     "render",
+    "ParsingOptions",
 ]
